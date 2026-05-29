@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
+model Domain {
+  id             String   @id @default(uuid())
+  name           String   @unique
+  verified       Boolean  @default(false)
+  dkimSelector   String?  @map("dkim_selector")
+  dkimPrivateKey String?  @map("dkim_private_key")
+  dkimPublicKey  String?  @map("dkim_public_key")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  smtpCredentials SmtpCredential[]
+  emails          Email[]
+
+  @@map("domains")
+}
+
+model SmtpCredential {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  active       Boolean  @default(true)
+  domainId     String   @map("domain_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  domain Domain @relation(fields: [domainId], references: [id])
+
+  @@map("smtp_credentials")
+}
+
+model Email {
+  id            String   @id @default(uuid())
+  messageId     String   @unique @map("message_id")
+  fromEmail     String   @map("from_email")
+  toEmail       String   @map("to_email")
+  subject       String?
+  body          String?
+  status        String   @default("queued")
+  failureReason String?  @map("failure_reason")
+  domainId      String?  @map("domain_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  domain  Domain?       @relation(fields: [domainId], references: [id])
+  events  EmailEvent[]
+
+  @@map("emails")
+}
+
+model EmailEvent {
+  id        String   @id @default(uuid())
+  emailId   String   @map("email_id")
+  event     String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  email Email @relation(fields: [emailId], references: [id])
+
+  @@map("email_events")
+}

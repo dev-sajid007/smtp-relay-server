@@ -1,0 +1,62 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../lib/utils";
+
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const res = await api.login(email, password);
+      localStorage.setItem("token", res.access_token);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-lg shadow-md w-full max-w-sm"
+      >
+        <h1 className="text-2xl font-bold mb-6 text-center">Admin Login</h1>
+        {error && (
+          <p className="text-red-600 text-sm mb-4 p-3 bg-red-50 rounded">
+            {error}
+          </p>
+        )}
+        <div className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+          />
+          <button
+            type="submit"
+            className="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Sign In
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

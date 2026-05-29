@@ -1,0 +1,47 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: email-relay-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  postfix:
+    image: boky/postfix:latest
+    container_name: email-relay-postfix
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:25:25"
+    environment:
+      - ALLOWED_SENDER_DOMAINS=*
+      - POSTFIX_MYHOSTNAME=
+      - SMTP_SASL_PASSWD=
+      - RELAYHOST=
+    volumes:
+      - postfix-data:/var/spool/postfix
+      - postfix-logs:/var/log/postfix
+    cap_add:
+      - NET_ADMIN
+
+  opendkim:
+    image: jiro4989/opendkim:latest
+    container_name: email-relay-dkim
+    restart: unless-stopped
+    volumes:
+      - dkim-keys:/etc/opendkim/keys
+      - ./dkim/opendkim.conf:/etc/opendkim.conf:ro
+    ports:
+      - "127.0.0.1:8891:8891"
+
+volumes:
+  redis-data:
+  postfix-data:
+  postfix-logs:
+  dkim-keys:
