@@ -1,6 +1,16 @@
-import { Worker } from "bullmq";
+import { Worker, QueueEvents } from "bullmq";
 import { prisma } from "@email-relay/database";
 import * as nodemailer from "nodemailer";
+import * as crypto from "crypto";
+import pino from "pino";
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport:
+    process.env.NODE_ENV !== "production"
+      ? { target: "pino-pretty", options: { colorize: true } }
+      : undefined,
+});
 
 const connection = {
   host: process.env.REDIS_HOST || "localhost",
@@ -18,6 +28,8 @@ const worker = new Worker(
   async (job) => {
     const { emailId, fromEmail, toEmail, body, domainId } = job.data;
 
+    logger.info({ emailId, jobId: job.id }, "Processing email");
+
     await prisma.email.update({
       where: { id: emailId },
       data: { status: "processing" },
@@ -27,7 +39,7 @@ const worker = new Worker(
       data: {
         emailId,
         event: "processing",
-        metadata: { jobId: job.id },
+        metadata: { jobId: job.id, attempt: job.attemptsMade },
       },
     });
 
@@ -39,12 +51,13 @@ const worker = new Worker(
       let signedBody = body;
 
       if (domain?.dkimSelector && domain?.dkimPrivateKey) {
-        signedBody = await dkimSign(
+        signedBody = dkimSign(
           body,
           domain.name,
           domain.dkimSelector,
           domain.dkimPrivateKey
         );
+        logger.info({ emailId, domain: domain.name }, "DKIM signed");
       }
 
       await transporter.sendMail({
@@ -67,8 +80,12 @@ const worker = new Worker(
           metadata: { deliveredAt: new Date().toISOString() },
         },
       });
+
+      logger.info({ emailId, toEmail }, "Email sent successfully");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
+
+      logger.error({ emailId, err }, "Email delivery failed");
 
       await prisma.email.update({
         where: { id: emailId },
@@ -86,17 +103,22 @@ const worker = new Worker(
       throw err;
     }
   },
-  { connection }
+  {
+    connection,
+    concurrency: parseInt(process.env.WORKER_CONCURRENCY || "5", 10),
+    limiter: {
+      max: parseInt(process.env.WORKER_RATE_LIMIT || "10", 10),
+      duration: 1000,
+    },
+  }
 );
 
-async function dkimSign(
+function dkimSign(
   body: string,
   domain: string,
   selector: string,
   privateKey: string
-): Promise<string> {
-  const crypto = await import("crypto");
-
+): string {
   const headers = body.split(/\r?\n\r?\n/)[0] || "";
   const bodyPart = body.substring(headers.length).trim();
 
@@ -110,23 +132,29 @@ async function dkimSign(
     `h=from:to:subject:date:mime-version:content-type`,
   ];
 
-  const signatureHeader = signatureHeaders.join("; ");
-  const signature = crypto.sign(
-    "sha256",
-    Buffer.from(signatureHeader),
-    privateKey
-  );
-  const sigB64 = signature.toString("base64");
+  const signer = crypto.createSign("sha256");
+  signer.update(signatureHeaders.join("; "));
+  signer.end();
+  const sigB64 = signer.sign(privateKey, "base64");
 
-  const dkimHeader = `DKIM-Signature: ${signatureHeaders.join("; ")};
- b=${sigB64}`;
+  const dkimHeader = `DKIM-Signature: ${signatureHeaders.join(";\n  ")};
+  b=${sigB64}`;
 
   return `${dkimHeader}\r\n${body}`;
 }
 
 function computeBodyHash(body: string): string {
-  const crypto = require("crypto");
   return crypto.createHash("sha256").update(body).digest("base64");
 }
 
-console.log("Worker started, waiting for jobs...");
+logger.info("Worker started, waiting for jobs...");
+
+const shutdown = async () => {
+  logger.info("Shutting down worker...");
+  await worker.close();
+  await prisma.$disconnect();
+  process.exit(0);
+};
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);

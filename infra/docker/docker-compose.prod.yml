@@ -1,0 +1,93 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: email-relay-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postfix:
+    image: boky/postfix:latest
+    container_name: email-relay-postfix
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:25:25"
+    environment:
+      - ALLOWED_SENDER_DOMAINS=*
+      - POSTFIX_MYHOSTNAME=${POSTFIX_HOSTNAME:-mail.example.com}
+      - SMTP_SASL_PASSWD=
+      - RELAYHOST=
+    volumes:
+      - postfix-data:/var/spool/postfix
+      - postfix-logs:/var/log/postfix
+    cap_add:
+      - NET_ADMIN
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: email-relay-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - POSTFIX_HOST=postfix
+      - POSTFIX_PORT=25
+      - NODE_ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+    container_name: email-relay-worker
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTFIX_HOST=postfix
+      - POSTFIX_PORT=25
+      - NODE_ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  redis-data:
+  postfix-data:
+  postfix-logs:

@@ -1,5 +1,7 @@
-import { Module } from "@nestjs/common";
+import { Module, ValidationPipe } from "@nestjs/common";
+import { APP_FILTER, APP_PIPE } from "@nestjs/core";
 import { PrismaModule } from "./common/prisma.module";
+import { AllExceptionsFilter } from "./common/all-exceptions.filter";
 import { HealthModule } from "./modules/health/health.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { DomainModule } from "./modules/domain/domain.module";
@@ -20,6 +22,21 @@ import { DkimModule } from "./modules/dkim/dkim.module";
     QueueModule,
     LogModule,
     DkimModule,
+  ],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: AllExceptionsFilter,
+    },
+    {
+      provide: APP_PIPE,
+      useFactory: () =>
+        new ValidationPipe({
+          whitelist: true,
+          forbidNonWhitelisted: true,
+          transform: true,
+        }),
+    },
   ],
 })
 export class AppModule {}
