@@ -5,7 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const API_BASE = "/api";
+const API_BASE =
+  import.meta.env.VITE_API_URL || "/api";
 
 async function fetchApi(path: string, options?: RequestInit) {
   const token = localStorage.getItem("token");
