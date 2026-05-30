@@ -5,7 +5,7 @@ import { PrismaClient } from "@email-relay/database";
 export class LogService {
   constructor(@Inject("PrismaClient") private readonly prisma: PrismaClient) {}
 
-  async findAll(page = 1, limit = 50) {
+  async findAll(page = 1, limit = 50): Promise<any> {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       this.prisma.emailEvent.findMany({
@@ -19,7 +19,7 @@ export class LogService {
     return { data, total, page, limit };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<any> {
     return this.prisma.emailEvent.findUnique({
       where: { id },
       include: { email: true },

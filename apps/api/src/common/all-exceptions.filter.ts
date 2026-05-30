@@ -5,14 +5,13 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { FastifyReply } from "fastify";
 import { logger } from "./logger";
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const response = ctx.getResponse<FastifyReply>();
+    const response = ctx.getResponse<any>();
 
     const status =
       exception instanceof HttpException

@@ -14,7 +14,7 @@ export class EmailController {
   constructor(private readonly emailService: EmailService) {}
 
   @Get()
-  findAll(@Query("page") page?: string, @Query("limit") limit?: string) {
+  findAll(@Query("page") page?: string, @Query("limit") limit?: string): any {
     return this.emailService.findAll(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 50
@@ -22,7 +22,7 @@ export class EmailController {
   }
 
   @Get(":id")
-  findOne(@Param("id") id: string) {
+  findOne(@Param("id") id: string): any {
     return this.emailService.findOne(id);
   }
 }

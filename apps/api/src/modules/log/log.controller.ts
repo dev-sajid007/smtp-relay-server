@@ -8,7 +8,7 @@ export class LogController {
   constructor(private readonly logService: LogService) {}
 
   @Get()
-  findAll(@Query("page") page?: string, @Query("limit") limit?: string) {
+  findAll(@Query("page") page?: string, @Query("limit") limit?: string): any {
     return this.logService.findAll(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 50
@@ -16,7 +16,7 @@ export class LogController {
   }
 
   @Get(":id")
-  findOne(@Param("id") id: string) {
+  findOne(@Param("id") id: string): any {
     return this.logService.findOne(id);
   }
 }
