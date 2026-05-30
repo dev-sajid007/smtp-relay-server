@@ -13,4 +13,7 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: ["mail-admin.entrogic.com"],
+  },
 });
