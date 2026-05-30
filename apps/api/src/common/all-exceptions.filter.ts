@@ -5,17 +5,14 @@ import {
   HttpException,
   HttpStatus,
 } from "@nestjs/common";
-import { HttpAdapterHost } from "@nestjs/core";
+import { FastifyReply } from "fastify";
 import { logger } from "./logger";
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
-
   catch(exception: unknown, host: ArgumentsHost) {
-    const { httpAdapter } = this.httpAdapterHost;
-
     const ctx = host.switchToHttp();
+    const response = ctx.getResponse<FastifyReply>();
 
     const status =
       exception instanceof HttpException
@@ -37,6 +34,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
     };
 
-    httpAdapter.reply(ctx.getResponse(), responseBody, status);
+    response.status(status).send(responseBody);
   }
 }
