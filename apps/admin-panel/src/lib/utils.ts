@@ -13,7 +13,7 @@ async function fetchApi(path: string, options?: RequestInit) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(options?.body ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
@@ -66,6 +66,11 @@ export const api = {
   emails: {
     list: (page = 1) => fetchApi(`/emails?page=${page}`),
     get: (id: string) => fetchApi(`/emails/${id}`),
+    send: (from: string, to: string, subject: string, body: string) =>
+      fetchApi("/emails/send", {
+        method: "POST",
+        body: JSON.stringify({ from, to, subject, body }),
+      }),
   },
 
   logs: {

@@ -5,6 +5,7 @@ const navItems = [
   { path: "/", label: "Dashboard" },
   { path: "/domains", label: "Domains" },
   { path: "/smtp-credentials", label: "SMTP Credentials" },
+  { path: "/send-email", label: "Send Email" },
   { path: "/email-logs", label: "Email Logs" },
 ];
 

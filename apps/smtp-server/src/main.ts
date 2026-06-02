@@ -1,6 +1,8 @@
 import { SMTPServer } from "smtp-server";
-import { prisma } from "@email-relay/database";
+import { PrismaClient } from "@email-relay/database";
 import * as bcrypt from "bcryptjs";
+
+const prisma = new PrismaClient();
 import { v4 as uuidv4 } from "uuid";
 import { Queue } from "bullmq";
 import pino from "pino";

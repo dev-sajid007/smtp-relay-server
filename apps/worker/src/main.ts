@@ -1,6 +1,8 @@
 import { Worker, QueueEvents } from "bullmq";
-import { prisma } from "@email-relay/database";
+import { PrismaClient } from "@email-relay/database";
 import * as nodemailer from "nodemailer";
+
+const prisma = new PrismaClient();
 import * as crypto from "crypto";
 import pino from "pino";
 
@@ -21,6 +23,7 @@ const transporter = nodemailer.createTransport({
   host: process.env.POSTFIX_HOST || "127.0.0.1",
   port: process.env.POSTFIX_PORT ? parseInt(process.env.POSTFIX_PORT) : 25,
   secure: false,
+  tls: { rejectUnauthorized: false },
 });
 
 const worker = new Worker(

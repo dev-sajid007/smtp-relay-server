@@ -4,6 +4,7 @@ import Dashboard from "./pages/Dashboard";
 import Domains from "./pages/Domains";
 import SmtpCredentials from "./pages/SmtpCredentials";
 import EmailLogs from "./pages/EmailLogs";
+import SendEmail from "./pages/SendEmail";
 import Layout from "./components/Layout";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="domains" element={<Domains />} />
         <Route path="smtp-credentials" element={<SmtpCredentials />} />
         <Route path="email-logs" element={<EmailLogs />} />
+        <Route path="send-email" element={<SendEmail />} />
       </Route>
     </Routes>
   );

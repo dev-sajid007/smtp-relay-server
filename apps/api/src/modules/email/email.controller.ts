@@ -1,7 +1,9 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
+  Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
@@ -24,5 +26,10 @@ export class EmailController {
   @Get(":id")
   findOne(@Param("id") id: string): any {
     return this.emailService.findOne(id);
+  }
+
+  @Post("send")
+  send(@Body() body: { from: string; to: string; subject: string; body: string }) {
+    return this.emailService.send(body.from, body.to, body.subject, body.body);
   }
 }

@@ -13,7 +13,12 @@ async function bootstrap() {
     new FastifyAdapter({ logger: false })
   );
 
-  app.enableCors({ origin: true, credentials: true });
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
 
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   const host = process.env.HOST || "0.0.0.0";
