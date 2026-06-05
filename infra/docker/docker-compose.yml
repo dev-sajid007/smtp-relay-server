@@ -30,18 +30,7 @@ services:
     cap_add:
       - NET_ADMIN
 
-  opendkim:
-    image: jiro4989/opendkim:latest
-    container_name: email-relay-dkim
-    restart: unless-stopped
-    volumes:
-      - dkim-keys:/etc/opendkim/keys
-      - ./dkim/opendkim.conf:/etc/opendkim.conf:ro
-    ports:
-      - "127.0.0.1:8891:8891"
-
 volumes:
   redis-data:
   postfix-data:
   postfix-logs:
-  dkim-keys:
