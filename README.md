@@ -16,7 +16,7 @@ SMTP Client → SMTP Server → Database → BullMQ Queue → Worker → DKIM Si
 | ORM | Prisma |
 | Database | PostgreSQL (cloud) |
 | Queue | Redis, BullMQ |
-| Mail | Postfix, OpenDKIM |
+| Mail | Postfix |
 | Frontend | React, Vite, Tailwind CSS |
 
 ## Project Structure
@@ -30,9 +30,17 @@ SMTP Client → SMTP Server → Database → BullMQ Queue → Worker → DKIM Si
 ├── packages/
 │   └── database/         # Prisma schema + shared client
 ├── infra/
-│   └── docker/           # Docker Compose for Redis, Postfix, OpenDKIM
-└── scripts/
-    └── deploy.sh         # Ubuntu VPS deployment script
+│   └── docker/           # Docker Compose files + Dockerfiles
+│       ├── docker-compose.yml       # Local infra (Redis, Postfix)
+│       ├── docker-compose.prod.yml  # Full production stack (7 services)
+│       ├── api.Dockerfile
+│       ├── worker.Dockerfile
+│       ├── smtp.Dockerfile
+│       ├── admin.Dockerfile
+│       └── nginx/                   # Nginx reverse proxy config
+├── scripts/
+│   ├── deploy.sh         # Ubuntu VPS bare-metal deployment
+│   └── deploy-docker.sh  # Ubuntu VPS Docker deployment
 ```
 
 ## Getting Started
@@ -42,32 +50,44 @@ SMTP Client → SMTP Server → Database → BullMQ Queue → Worker → DKIM Si
 - Node.js 24+
 - pnpm
 - PostgreSQL (cloud — Prisma Data Platform, Supabase, Neon, etc.)
-- Redis
-- Postfix (for delivery)
+- Docker (for local Redis & Postfix)
 
 ### Local Development
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 pnpm install
 
-# Push schema to database
+# 2. Start infrastructure (Redis + Postfix)
+docker compose -f infra/docker/docker-compose.yml up -d
+
+# 3. Push schema and seed
 pnpm db:push
+pnpm db:seed    # admin: admin@emailrelay.local / admin123
 
-# Seed admin user (password: admin123)
-pnpm db:seed
-
-# Start services (each in a separate terminal)
+# 4. Start apps (each in a separate terminal)
 pnpm --filter @email-relay/api dev
 pnpm --filter @email-relay/smtp-server dev
 pnpm --filter @email-relay/worker dev
 pnpm --filter @email-relay/admin-panel dev
 ```
 
-### Docker (local services)
+### Docker (local services only)
+
+Starts Redis (port 6379) and Postfix (port 25) for local development:
 
 ```bash
 docker compose -f infra/docker/docker-compose.yml up -d
+```
+
+### Docker (full production stack)
+
+Builds and runs all 7 services (Redis, Postfix, API, Worker, SMTP Server, Admin Panel, Nginx):
+
+```bash
+cp infra/docker/.env.prod.example .env
+# Edit .env — set DATABASE_URL, JWT_SECRET
+docker compose -f infra/docker/docker-compose.prod.yml --env-file .env up -d --build
 ```
 
 ## API Endpoints
@@ -94,19 +114,42 @@ docker compose -f infra/docker/docker-compose.yml up -d
 
 ## Deployment
 
+### Option 1: Docker (recommended)
+
+On a fresh Ubuntu 24.04 VPS:
+
+```bash
+sudo bash scripts/deploy-docker.sh
+```
+
+Or with a custom repo:
+
+```bash
+REPO_URL="https://github.com/dev-sajid007/smtp-realay-server.git" sudo bash scripts/deploy-docker.sh
+```
+
+The script installs Docker, clones the repo, builds all containers, and starts the full stack.
+
+Manual steps after deploy:
+
+```bash
+# Edit environment variables
+nano /opt/email-relay/.env
+
+# Restart with new config
+cd /opt/email-relay
+docker compose -f infra/docker/docker-compose.prod.yml --env-file .env up -d --build
+```
+
+### Option 2: Bare-metal
+
 On a fresh Ubuntu 24.04 VPS:
 
 ```bash
 sudo bash scripts/deploy.sh
 ```
 
-Or with a git remote:
-
-```bash
-REPO_URL="https://github.com/dev-sajid007/smtp-realay-server.git" sudo bash scripts/deploy.sh
-```
-
-The script installs all dependencies, configures Postfix + OpenDKIM, sets up systemd services, and configures the firewall.
+The script installs Node.js, Redis, Postfix, OpenDKIM, configures systemd services and firewall.
 
 ### VPS Requirements
 
@@ -117,18 +160,52 @@ The script installs all dependencies, configures Postfix + OpenDKIM, sets up sys
 
 ## Environment Variables
 
-| Variable | Description |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_HOST` | Redis host |
-| `REDIS_PORT` | Redis port |
-| `JWT_SECRET` | JWT signing secret |
-| `SMTP_HOST` | SMTP server bind address |
-| `SMTP_PORT` | SMTP server port |
-| `POSTFIX_HOST` | Postfix host |
-| `POSTFIX_PORT` | Postfix port |
-| `PORT` | API server port |
-| `HOST` | API bind address |
+### Core
+
+| Variable | Default | Description |
+|---|---|---|
+| `DATABASE_URL` | — | PostgreSQL connection string |
+| `JWT_SECRET` | — | JWT signing secret |
+| `NODE_ENV` | `production` | Environment mode |
+| `LOG_LEVEL` | `info` | Logging level |
+
+### API
+
+| Variable | Default | Description |
+|---|---|---|
+| `PORT` | `3000` | API server port |
+| `HOST` | `0.0.0.0` | API bind address |
+
+### SMTP Server
+
+| Variable | Default | Description |
+|---|---|---|
+| `SMTP_HOST` | `0.0.0.0` | SMTP bind address |
+| `SMTP_PORT` | `2525` | SMTP server port |
+| `SMTP_RATE_LIMIT_MAX` | `100` | Max emails per window |
+| `SMTP_RATE_LIMIT_WINDOW` | `3600` | Rate limit window (seconds) |
+
+### Queue (BullMQ)
+
+| Variable | Default | Description |
+|---|---|---|
+| `REDIS_HOST` | `127.0.0.1` | Redis host |
+| `REDIS_PORT` | `6379` | Redis port |
+
+### Delivery (Postfix)
+
+| Variable | Default | Description |
+|---|---|---|
+| `POSTFIX_HOST` | `127.0.0.1` | Postfix host |
+| `POSTFIX_PORT` | `25` | Postfix port |
+| `POSTFIX_HOSTNAME` | `mail.example.com` | Postfix myhostname |
+
+### Worker
+
+| Variable | Default | Description |
+|---|---|---|
+| `WORKER_CONCURRENCY` | `5` | Concurrent jobs |
+| `WORKER_RATE_LIMIT` | `10` | Jobs per second |
 
 ## Database Schema
 
